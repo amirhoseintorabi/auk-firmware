@@ -44,6 +44,7 @@ add_library(auk STATIC
     src/control/odometry.cpp
     src/control/slew_limiter.cpp
     src/safety/interlock.cpp
+    src/power/battery_gauge.cpp
 )
 target_include_directories(auk PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_compile_options(auk PRIVATE ${AUK_WARNINGS})
