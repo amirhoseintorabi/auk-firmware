@@ -80,3 +80,4 @@ endfunction()
 
 auk_add_test(test_core    tests/test_core.cpp)
 auk_add_test(test_control tests/test_control.cpp)
+auk_add_test(test_safety  tests/test_safety.cpp)
