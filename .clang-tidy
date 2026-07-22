@@ -1,0 +1,57 @@
+# Static analysis configuration.
+#
+#   clang-tidy -p build --quiet src/**/*.cpp
+#
+# Generate the compilation database first:
+#   cmake -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+#
+# The enabled set is aimed at the categories that actually bite in firmware --
+# undefined behaviour, lifetime, arithmetic conversions, portability -- rather
+# than at naming and style, which clang-format already settles.
+
+Checks: >
+  -*,
+  bugprone-*,
+  cert-*,
+  clang-analyzer-*,
+  concurrency-*,
+  misc-*,
+  performance-*,
+  portability-*,
+  readability-non-const-parameter,
+  readability-misleading-indentation,
+  readability-inconsistent-declaration-parameter-name,
+  -bugprone-easily-swappable-parameters,
+  -clang-analyzer-optin.core.EnumCastOutOfRange,
+  -misc-include-cleaner,
+  -misc-non-private-member-variables-in-classes,
+
+WarningsAsErrors: ''
+HeaderFilterRegex: '.*/include/auk/.*'
+FormatStyle: file
+
+# Why the four exclusions:
+#
+# bugprone-easily-swappable-parameters
+#     Fires on things like `SlewLimiter(float accel, float decel)` and
+#     `set_pose(float x, float y, float yaw)`. The concern is real in general,
+#     but wrapping every pair of same-typed physical quantities in a strong
+#     typedef would cost more clarity here than it buys.
+#
+# clang-analyzer-optin.core.EnumCastOutOfRange
+#     Does not model bitmask enums. `FaultFlags` is a scoped enum with a fixed
+#     underlying type, and [dcl.enum] says the values of such an enumeration are
+#     the values of that underlying type -- so casting any uint16_t to it is
+#     well defined, including combinations like FrontBumper|LinkLost that have
+#     no single named enumerator. The check reports one warning per reachable
+#     combination, which drowns everything else.
+#
+# misc-include-cleaner
+#     Wants every symbol's defining header included directly at each use. That
+#     is a coherent position, but it is not this codebase's: a module's header
+#     is its interface, and a .cpp includes its own header and relies on it.
+#     Adopting it would mean ~30 extra includes that say nothing.
+#
+# misc-non-private-member-variables-in-classes
+#     Fires on the plain data aggregates -- Twist, WheelSpeeds, Pose2D,
+#     SafetyInputs -- which are structs by intent.
