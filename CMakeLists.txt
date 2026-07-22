@@ -60,3 +60,22 @@ target_compile_options(auk-sim PRIVATE ${AUK_WARNINGS})
 add_executable(auk-sim-demo sim/main.cpp)
 target_link_libraries(auk-sim-demo PRIVATE auk-sim)
 target_compile_options(auk-sim-demo PRIVATE ${AUK_WARNINGS})
+
+# --------------------------------------------------------------------- tests
+enable_testing()
+
+function(auk_add_test name source)
+    add_executable(${name} ${source})
+    target_include_directories(${name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(${name} PRIVATE auk-sim)
+    target_compile_options(${name} PRIVATE ${AUK_WARNINGS})
+
+    if(AUK_SANITIZE)
+        target_compile_options(${name} PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer)
+        target_link_options(${name} PRIVATE -fsanitize=address,undefined)
+    endif()
+
+    add_test(NAME ${name} COMMAND ${name})
+endfunction()
+
+auk_add_test(test_core tests/test_core.cpp)
