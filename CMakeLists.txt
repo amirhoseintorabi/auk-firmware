@@ -78,4 +78,5 @@ function(auk_add_test name source)
     add_test(NAME ${name} COMMAND ${name})
 endfunction()
 
-auk_add_test(test_core tests/test_core.cpp)
+auk_add_test(test_core    tests/test_core.cpp)
+auk_add_test(test_control tests/test_control.cpp)
