@@ -1,0 +1,126 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: ${{ matrix.os }} / ${{ matrix.compiler }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Two compilers and two platforms, because portability claims that are
+        # not tested are just intentions. Clang and GCC disagree about enough
+        # warnings to be worth having both.
+        include:
+          - {os: ubuntu-latest, compiler: gcc,   cc: gcc,   cxx: g++}
+          - {os: ubuntu-latest, compiler: clang, cc: clang, cxx: clang++}
+          - {os: macos-latest,  compiler: clang, cc: clang, cxx: clang++}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        env:
+          CC: ${{ matrix.cc }}
+          CXX: ${{ matrix.cxx }}
+        run: cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DAUK_WERROR=ON
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Run the simulator
+        run: ./build/auk-sim-demo
+
+  sanitizers:
+    name: address + UB sanitizers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        env:
+          CC: clang
+          CXX: clang++
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Debug -DAUK_SANITIZE=ON
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Test
+        env:
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+          ASAN_OPTIONS: detect_leaks=1
+        run: ctest --test-dir build --output-on-failure
+
+  cross-compile:
+    name: cross-compile for Cortex-M4
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install arm-none-eabi
+        run: sudo apt-get update && sudo apt-get install -y gcc-arm-none-eabi
+
+      # Builds the portable library only -- the simulator and tests are
+      # host-side. This is what backs the claim that include/ and src/ have no
+      # platform dependency: if something creeps in, it fails here.
+      - name: Configure
+        run: |
+          cat > arm.cmake <<'EOF'
+          set(CMAKE_SYSTEM_NAME Generic)
+          set(CMAKE_SYSTEM_PROCESSOR arm)
+          set(CMAKE_C_COMPILER   arm-none-eabi-gcc)
+          set(CMAKE_CXX_COMPILER arm-none-eabi-g++)
+          set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
+          set(FLAGS "-mcpu=cortex-m4 -mthumb -mfloat-abi=hard -mfpu=fpv4-sp-d16 -ffunction-sections -fdata-sections -fno-exceptions -fno-rtti")
+          set(CMAKE_C_FLAGS_INIT   "${FLAGS}")
+          set(CMAKE_CXX_FLAGS_INIT "${FLAGS}")
+          EOF
+          cmake -B build-arm -DCMAKE_TOOLCHAIN_FILE=arm.cmake -DCMAKE_BUILD_TYPE=MinSizeRel
+
+      - name: Build the portable library
+        run: cmake --build build-arm --target auk --parallel
+
+      - name: Report size
+        run: arm-none-eabi-size -t build-arm/libauk.a
+
+  format:
+    name: clang-format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check formatting
+        run: |
+          find include src sim tests -name '*.hpp' -o -name '*.cpp' \
+            | xargs clang-format --dry-run --Werror
+
+  tidy:
+    name: clang-tidy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install clang-tidy
+        run: sudo apt-get update && sudo apt-get install -y clang-tidy
+
+      # A compilation database is needed so clang-tidy sees the same flags the
+      # real build uses.
+      - name: Configure
+        run: cmake -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=RelWithDebInfo
+
+      # Gated, not advisory: the checks in .clang-tidy are the ones that catch
+      # undefined behaviour and lifetime bugs, and the tree is clean against
+      # them today. Anything new should be fixed or explicitly excluded with a
+      # reason, not left to accumulate.
+      - name: Analyse
+        run: |
+          clang-tidy -p build --warnings-as-errors='*' \
+            src/core/*.cpp src/control/*.cpp src/power/*.cpp \
+            src/safety/*.cpp src/app/*.cpp
