@@ -40,6 +40,9 @@ endif()
 # no exceptions, no RTTI. This is the part that goes on the microcontroller.
 add_library(auk STATIC
     src/core/command.cpp
+    src/control/differential_drive.cpp
+    src/control/odometry.cpp
+    src/control/slew_limiter.cpp
 )
 target_include_directories(auk PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_compile_options(auk PRIVATE ${AUK_WARNINGS})
