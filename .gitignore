@@ -1,0 +1,14 @@
+build/
+build-*/
+cmake-build-*/
+*.o
+*.a
+*.elf
+*.map
+.cache/
+compile_commands.json
+.vscode/
+.idea/
+*.swp
+.DS_Store
+.check/
