@@ -50,3 +50,13 @@ add_library(auk STATIC
 )
 target_include_directories(auk PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_compile_options(auk PRIVATE ${AUK_WARNINGS})
+
+# ----------------------------------------------------------------- simulator
+add_library(auk-sim STATIC sim/sim_board.cpp)
+target_include_directories(auk-sim PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(auk-sim PUBLIC auk)
+target_compile_options(auk-sim PRIVATE ${AUK_WARNINGS})
+
+add_executable(auk-sim-demo sim/main.cpp)
+target_link_libraries(auk-sim-demo PRIVATE auk-sim)
+target_compile_options(auk-sim-demo PRIVATE ${AUK_WARNINGS})
