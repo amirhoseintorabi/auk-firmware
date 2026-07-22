@@ -119,15 +119,12 @@ public:
 
 /// Hardware watchdog.
 ///
-/// Present in the HAL rather than left to the port because a watchdog that is
-/// optional is a watchdog that is absent. `app::Robot` kicks it from exactly one
-/// place, at the end of a control iteration that completed, so a loop that
-/// wedges part-way through stops kicking and the part resets.
+/// Part of the HAL rather than left to the port, because a watchdog that is
+/// optional is a watchdog that is absent.
 ///
-/// Kicking it from a timer interrupt, which is the tempting shortcut, gives you
-/// a robot that resets only when the whole chip is dead -- and cheerfully keeps
-/// driving with a wedged control loop, which is the case you actually wanted to
-/// catch.
+/// The contract a caller has to honour: a kick must mean that a control
+/// iteration finished. Who kicks it, and from where, is the application's
+/// decision -- see `app::Robot::step`.
 class Watchdog
 {
 public:
